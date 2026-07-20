@@ -200,17 +200,19 @@ def _deg_to_dms_rational(deg: float) -> List[Tuple[int, int]]:
     s = (deg_abs - d - m / 60.0) * 3600
     return [(d, 1), (m, 1), (int(round(s * 100)), 100)]
 
-def create_fake_exif(make: str, model: str, lat: float, lon: float, width: int = 0, height: int = 0) -> bytes:
+def create_fake_exif(make: str, model: str, lat: float, lon: float, width: int = 0, height: int = 0, dt: datetime = None) -> bytes:
     """
     Создаёт реалистичный набор EXIF-тегов, как у настоящего смартфона.
+    Дата — от 1 января 2024 до сегодня.
     Важно: прописываем реальные PixelXDimension / PixelYDimension.
     """
-    # Случайная дата от 1 января 2024 года до сегодня
-    start_date = datetime(2024, 1, 1)
-    end_date = datetime.now()
-    days_between = (end_date - start_date).days
-    random_days = random.randint(0, days_between)
-    dt = start_date + timedelta(days=random_days, hours=random.randint(0, 23))
+    # Если дата не передана — генерируем от 1 января 2024 до сегодня
+    if dt is None:
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime.now()
+        days_between = (end_date - start_date).days
+        random_days = random.randint(0, days_between)
+        dt = start_date + timedelta(days=random_days, hours=random.randint(0, 23))
     dt_str = dt.strftime("%Y:%m:%d %H:%M:%S")
 
     lat_dms = _deg_to_dms_rational(lat)
@@ -327,8 +329,15 @@ def process_photo(file_bytes: bytes, mirror: bool = True, micro_rotate: bool = T
 
     w, h = img.size
 
-    # Генерируем EXIF (с реальными размерами изображения)
-    exif_bytes = create_fake_exif(make, model, lat, lon, width=w, height=h)
+    # Одна общая дата (от 2024 до сегодня) — для EXIF и для имени файла
+    start_date = datetime(2024, 1, 1)
+    end_date = datetime.now()
+    days_between = (end_date - start_date).days
+    random_days = random.randint(0, days_between)
+    dt = start_date + timedelta(days=random_days, hours=random.randint(0, 23))
+
+    # Генерируем EXIF (с реальными размерами изображения и общей датой)
+    exif_bytes = create_fake_exif(make, model, lat, lon, width=w, height=h, dt=dt)
 
     # Качество JPEG: для Apple делаем выше, чтобы файл не был подозрительно маленьким
     if make == "Apple":
@@ -359,16 +368,13 @@ def process_photo(file_bytes: bytes, mirror: bool = True, micro_rotate: bool = T
     }
 
     # Генерируем имя файла в стиле настоящего телефона
-    filename = generate_phone_filename(make)
+    filename = generate_phone_filename(make, dt)
 
     return processed_bytes, meta, filename
 
 
-def generate_phone_filename(make: str) -> str:
-    """Генерирует имя файла в стиле, как сохраняет телефон"""
-    import random
-
-    dt = datetime.now() - timedelta(minutes=random.randint(5, 180))
+def generate_phone_filename(make: str, dt: datetime) -> str:
+    """Генерирует имя файла в стиле, как сохраняет телефон (дата совпадает с EXIF)"""
     date_str = dt.strftime("%Y%m%d_%H%M%S")
 
     if make == "Apple":
@@ -380,7 +386,6 @@ def generate_phone_filename(make: str) -> str:
     else:
         # Samsung, Xiaomi, Huawei, OnePlus, Sony и большинство Android
         return f"IMG_{date_str}.jpg"
-
 
 # ==================== TELEGRAM HANDLERS ====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
