@@ -205,8 +205,12 @@ def create_fake_exif(make: str, model: str, lat: float, lon: float, width: int =
     Создаёт реалистичный набор EXIF-тегов, как у настоящего смартфона.
     Важно: прописываем реальные PixelXDimension / PixelYDimension.
     """
-    # Случайная дата в последние 60 дней (реалистично)
-    dt = datetime.now() - timedelta(days=random.randint(0, 60), hours=random.randint(0, 23))
+    # Случайная дата от 1 января 2024 года до сегодня
+    start_date = datetime(2024, 1, 1)
+    end_date = datetime.now()
+    days_between = (end_date - start_date).days
+    random_days = random.randint(0, days_between)
+    dt = start_date + timedelta(days=random_days, hours=random.randint(0, 23))
     dt_str = dt.strftime("%Y:%m:%d %H:%M:%S")
 
     lat_dms = _deg_to_dms_rational(lat)
